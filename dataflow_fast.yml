@@ -87,7 +87,7 @@ nodes:
 
   - id: rerun_image_bridge
     build: |
-      uv venv --seed -p 3.12 .venv
+      uv venv --allow-existing --seed -p 3.12 .venv
       uv pip install --python .venv/bin/python dora-rs pyarrow numpy pillow dora-rerun rerun-sdk==0.24.1
     path: .venv/bin/python
     args: scripts/rerun_image_bridge.py

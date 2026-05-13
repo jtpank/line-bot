@@ -85,11 +85,19 @@ dora --version
 uv --version
 ```
 
-The viewer dependencies are downloaded by `dora build` into `.venv` using the commands in the dataflow files:
+The viewer dependencies are downloaded by `dora build` into `.venv` using the commands in the
+dataflow files. You do not need to run these manually unless you are repairing the environment
+outside Dora:
 
 ```bash
-uv venv --seed -p 3.12 .venv
+uv venv --allow-existing --seed -p 3.12 .venv
 uv pip install --python .venv/bin/python dora-rs pyarrow numpy pillow dora-rerun rerun-sdk==0.24.1
+```
+
+If you need to fully recreate a stale or mismatched environment, replace the first command with:
+
+```bash
+uv venv --clear --seed -p 3.12 .venv
 ```
 
 ## Build
@@ -119,7 +127,10 @@ dora build dataflow.yml
 dora run dataflow.yml
 ```
 
-`dora build` uses the build command on `map_server`; `dora run` starts the C++ node graph and viewer. On Linux/Jetson, make sure the shell running Dora has Cargo and local Python tools on `PATH`:
+`dora build` uses the build commands in the dataflow, including the C++ build on `map_server` and
+the Python viewer environment setup on `rerun_image_bridge`; `dora run` starts the C++ node graph
+and viewer. On Linux/Jetson, make sure the shell running Dora has Cargo and local Python tools on
+`PATH`:
 
 ```bash
 export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
@@ -130,6 +141,14 @@ For a faster visual demo, use the higher-rate dataflow:
 ```bash
 dora build dataflow_fast.yml
 dora run dataflow_fast.yml
+```
+
+On WSL/Linux with WSLg, the Rerun viewer may fail with a `WGPU error: Parent device is lost`
+message if its graphics backend auto-detects the wrong adapter. Force the Vulkan backend for the
+run command:
+
+```bash
+WGPU_BACKEND=vulkan dora run dataflow_fast.yml
 ```
 
 For the physical robot target, assume Linux/aarch64 on the Jetson. The same C++ build steps apply there. The Rerun viewer is useful during development, but on a headless robot you will likely run the control/sensing nodes without the viewer node or stream visualization to a separate development machine.

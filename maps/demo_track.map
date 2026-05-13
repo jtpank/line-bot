@@ -1,0 +1,41 @@
+# Parking-lot striping demo map using surveyed-style GPS inputs.
+# units controls unitless distance fields and segment_gps line lengths.
+# segment_gps format:
+#   id,start_lat,start_lon,start_alt,bearing_deg_clockwise_from_north,length
+# boundary_gps supports keep-in polygons and internal keep-out polygons.
+type=mission
+units=feet
+gps_origin=37.42199990,-122.08405750,10.00
+home_gps=37.42197287,-122.08405750,10.00,1.57079632679
+sim_time_scale=1.0
+track_width=2.46
+max_speed=2.95
+max_accel=2.62
+paint_width=0.26
+completion_tolerance=0.59
+avoid_clearance=1.48
+line_boundary_buffer=1.0
+paint_arm_offset=1.15,0.92,0.30
+boundary_gps=lot_keep_in,keep_in,37.42196694,-122.08407816,10.00|37.42196694,-122.08368217,10.00|37.42204933,-122.08368217,10.00|37.42204933,-122.08407816,10.00
+boundary_gps=early_cart_corral,keep_out,37.42201206,-122.08404790,10.00|37.42201206,-122.08403886,10.00|37.42202648,-122.08403886,10.00|37.42202648,-122.08404790,10.00
+boundary_gps=blocked_demo_line,keep_out,37.42201342,-122.08402361,10.00|37.42201342,-122.08401886,10.00|37.42203053,-122.08401886,10.00|37.42203053,-122.08402361,10.00
+segment_gps=spot_01_left,37.42199990,-122.08405750,10.00,0,16.5
+segment_gps=spot_01_right,37.42199990,-122.08402823,10.00,0,16.5
+segment_gps=spot_02_left,37.42199990,-122.08402134,10.00,0,16.5
+segment_gps=spot_02_right,37.42199990,-122.08399208,10.00,0,16.5
+segment_gps=spot_03_left,37.42199990,-122.08398519,10.00,0,16.5
+segment_gps=spot_03_right,37.42199990,-122.08395592,10.00,0,16.5
+segment_gps=spot_04_left,37.42199990,-122.08394903,10.00,0,16.5
+segment_gps=spot_04_right,37.42199990,-122.08391976,10.00,0,16.5
+segment_gps=spot_05_left,37.42199990,-122.08391288,10.00,0,16.5
+segment_gps=spot_05_right,37.42199990,-122.08388361,10.00,0,16.5
+segment_gps=spot_06_left,37.42199990,-122.08387672,10.00,0,16.5
+segment_gps=spot_06_right,37.42199990,-122.08384745,10.00,0,16.5
+segment_gps=spot_07_left,37.42199990,-122.08384057,10.00,0,16.5
+segment_gps=spot_07_right,37.42199990,-122.08381130,10.00,0,16.5
+segment_gps=spot_08_left,37.42199990,-122.08380441,10.00,0,16.5
+segment_gps=spot_08_right,37.42199990,-122.08377514,10.00,0,16.5
+segment_gps=spot_09_left,37.42199990,-122.08376825,10.00,0,16.5
+segment_gps=spot_09_right,37.42199990,-122.08373899,10.00,0,16.5
+segment_gps=spot_10_left,37.42199990,-122.08373210,10.00,0,16.5
+segment_gps=spot_10_right,37.42199990,-122.08370283,10.00,0,16.5

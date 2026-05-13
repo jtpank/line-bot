@@ -1,0 +1,118 @@
+nodes:
+  - id: map_server
+    build: |
+      cmake -S . -B build
+      cmake --build build
+    path: build/bin/map_server
+    inputs:
+      tick: dora/timer/millis/100
+    outputs:
+      - mission
+    env:
+      MAP_PATH: maps/demo_track.map
+
+  - id: vehicle_sim
+    path: build/bin/vehicle_sim
+    inputs:
+      tick: dora/timer/millis/100
+      mission: map_server/mission
+      drive_command: controller/drive_command
+      paint_command: controller/paint_command
+    outputs:
+      - true_state
+      - paint_event
+
+  - id: gps_sim
+    path: build/bin/gps_sim
+    inputs:
+      true_state: vehicle_sim/true_state
+    outputs:
+      - rtk_fix
+
+  - id: imu_sim
+    path: build/bin/imu_sim
+    inputs:
+      true_state: vehicle_sim/true_state
+    outputs:
+      - imu
+
+  - id: state_estimator
+    path: build/bin/state_estimator
+    inputs:
+      tick: dora/timer/millis/100
+      rtk_fix: gps_sim/rtk_fix
+      imu: imu_sim/imu
+    outputs:
+      - state_estimate
+
+  - id: paint_tracker
+    path: build/bin/paint_tracker
+    inputs:
+      tick: dora/timer/millis/100
+      mission: map_server/mission
+      paint_event: vehicle_sim/paint_event
+    outputs:
+      - paint_report
+
+  - id: planner
+    path: build/bin/planner
+    inputs:
+      tick: dora/timer/millis/100
+      mission: map_server/mission
+      state_estimate: state_estimator/state_estimate
+      paint_report: paint_tracker/paint_report
+    outputs:
+      - plan
+
+  - id: controller
+    path: build/bin/controller
+    inputs:
+      tick: dora/timer/millis/100
+      mission: map_server/mission
+      state_estimate: state_estimator/state_estimate
+      plan: planner/plan
+    outputs:
+      - drive_command
+      - paint_command
+
+  - id: monitor
+    path: build/bin/monitor
+    inputs:
+      tick: dora/timer/millis/500
+      mission: map_server/mission
+      state_estimate: state_estimator/state_estimate
+      plan: planner/plan
+      paint_report: paint_tracker/paint_report
+
+  - id: rerun_image_bridge
+    build: |
+      uv venv --seed -p 3.12 .venv
+      uv pip install --python .venv/bin/python dora-rs pyarrow numpy pillow dora-rerun rerun-sdk==0.24.1
+    path: .venv/bin/python
+    args: scripts/rerun_image_bridge.py
+    inputs:
+      tick: dora/timer/millis/100
+      mission: map_server/mission
+      state_estimate: state_estimator/state_estimate
+      plan: planner/plan
+      paint_report: paint_tracker/paint_report
+    outputs:
+      - image
+      - text
+    env:
+      PYTHONPATH: .venv/lib/python3.12/site-packages
+
+  - id: dora-rerun
+    path: .venv/bin/dora-rerun
+    inputs:
+      image:
+        source: rerun_image_bridge/image
+        queue_size: 1
+      text: rerun_image_bridge/text
+    env:
+      README: |
+        # Paint Robot Simulation
+
+        Live view generated from the Dora C++ simulation graph.
+      RERUN_MEMORY_LIMIT: 25%
+      PATH: .venv/bin:/Users/justin/.cargo/bin:/Users/justin/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin

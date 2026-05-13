@@ -1,0 +1,3 @@
+[workspace]
+members = ["dora-c-api"]
+resolver = "2"

@@ -1,0 +1,12 @@
+[package]
+name = "paint-robot-dora-c-api"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "dora_node_api_c"
+crate-type = ["staticlib"]
+
+[dependencies]
+dora-node-api-c = "0.5.0"

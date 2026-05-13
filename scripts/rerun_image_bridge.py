@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import math
+import os
+import signal
+import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -68,6 +72,7 @@ class Plan:
     target_x: float = 0.0
     target_y: float = 0.0
     line_id: str = ""
+    entry_is_start: bool = True
     paint_enabled: bool = False
     infeasible: dict[str, str] = field(default_factory=dict)
 
@@ -201,6 +206,7 @@ def parse_plan(data: bytes) -> Plan | None:
         target_x=as_float(last(fields, "target_x", "0")),
         target_y=as_float(last(fields, "target_y", "0")),
         line_id=last(fields, "line_id"),
+        entry_is_start=as_bool(last(fields, "entry_is_start", "1")),
         paint_enabled=as_bool(last(fields, "paint_enabled", "0")),
         infeasible=infeasible,
     )
@@ -405,6 +411,7 @@ def status_text(mission: Mission | None, state: RobotState | None, plan: Plan | 
         f"mode={mode}\n"
         f"paint_enabled={plan.paint_enabled if plan is not None else False}\n"
         f"active_line={plan.line_id if plan is not None else ''}\n"
+        f"entry_is_start={plan.entry_is_start if plan is not None else True}\n"
         f"completed={completed}/{total}\n"
         f"infeasible={len(infeasible)}\n"
         f"infeasible_reasons={reason_text}\n"
@@ -412,6 +419,37 @@ def status_text(mission: Mission | None, state: RobotState | None, plan: Plan | 
         f"pose={pose}\n"
         f"target={target}"
     )
+
+
+def stop_dora_rerun() -> None:
+    """Stop the packaged viewer so `dora run` can finish after mission_done."""
+    cwd = str(Path.cwd())
+    try:
+        output = subprocess.check_output(["ps", "-eo", "pid=,args="], text=True)
+    except Exception:
+        return
+
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        pid_text, _, args = stripped.partition(" ")
+        try:
+            pid = int(pid_text)
+        except ValueError:
+            continue
+        if pid == os.getpid():
+            continue
+        is_project_viewer = cwd in args and (
+            "/dora-rerun" in args or "/rerun --port=9876" in args or "/rerun_cli/rerun" in args
+        )
+        if is_project_viewer:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                pass
 
 
 def main() -> None:
@@ -429,6 +467,9 @@ def main() -> None:
 
         payload = event_bytes(event)
         match event["id"]:
+            case "mission_done":
+                stop_dora_rerun()
+                break
             case "mission":
                 mission = parse_mission(payload) or mission
             case "state_estimate":

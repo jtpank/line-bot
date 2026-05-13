@@ -12,6 +12,9 @@ int main() {
         if (!event || event->kind == sim::EventKind::Stop) {
             break;
         }
+        if (event->kind == sim::EventKind::Input && event->id == "mission_done") {
+            break;
+        }
         if (event->kind == sim::EventKind::Input && event->id == "true_state") {
             if (auto state = sim::parse_state(event->data)) {
                 node.send("rtk_fix", sim::render_gps_fix(sim::GpsFix{

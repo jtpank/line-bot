@@ -52,6 +52,9 @@ int main() {
         if (!event || event->kind == sim::EventKind::Stop) {
             break;
         }
+        if (event->kind == sim::EventKind::Input && event->id == "mission_done") {
+            break;
+        }
         if (event->kind == sim::EventKind::Input && event->id == "tick") {
             node.send("mission", mission_message);
         }

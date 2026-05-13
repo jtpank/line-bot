@@ -95,6 +95,7 @@ struct Plan {
     double target_x{0.0};
     double target_y{0.0};
     std::string line_id;
+    bool entry_is_start{true};
     bool paint_enabled{false};
     double desired_speed_mps{0.0};
     std::map<std::string, std::string> infeasible;

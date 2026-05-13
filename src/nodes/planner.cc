@@ -79,6 +79,19 @@ std::optional<sim::Segment> find_segment(const sim::Mission &mission, const std:
     return std::nullopt;
 }
 
+sim::Segment oriented_segment(const sim::Segment &segment, bool entry_is_start) {
+    if (entry_is_start) {
+        return segment;
+    }
+    return sim::Segment{.id = segment.id, .start = segment.end, .end = segment.start};
+}
+
+sim::Segment center_segment_for_entry(const sim::Segment &segment,
+                                      const sim::Mission &mission,
+                                      bool entry_is_start) {
+    return sim::robot_center_segment_for_paint_segment(oriented_segment(segment, entry_is_start), mission);
+}
+
 bool near_segment_endpoint(const sim::Segment &segment, sim::Point point, double clearance) {
     return sim::distance(point, segment.start) < clearance || sim::distance(point, segment.end) < clearance;
 }
@@ -321,10 +334,20 @@ std::optional<sim::Point> return_home_corridor_waypoint(const sim::Mission &miss
         return std::nullopt;
     }
 
+    double top_boundary_y = max_line_y + mission.avoid_clearance_m * 2.0;
+    for (const auto &boundary : mission.boundaries) {
+        if (sim::boundary_is_keep_out(boundary)) {
+            continue;
+        }
+        for (const auto &vertex : boundary.vertices) {
+            top_boundary_y = std::max(top_boundary_y, vertex.y);
+        }
+    }
+    const double open_span_y = std::max(0.0, top_boundary_y - max_line_y);
     const std::vector<double> top_y_candidates{
-        max_line_y + 0.08,
-        max_line_y + mission.completion_tolerance_m * 0.8,
-        max_line_y + mission.completion_tolerance_m * 1.2,
+        max_line_y + open_span_y * 0.55,
+        max_line_y + open_span_y * 0.72,
+        max_line_y + std::max(mission.avoid_clearance_m * 1.8, mission.completion_tolerance_m * 4.0),
     };
     const double side_clearance = std::max(mission.avoid_clearance_m * 1.5, mission.completion_tolerance_m * 2.5);
     const std::vector<double> side_x_candidates{
@@ -373,10 +396,11 @@ std::optional<sim::Point> return_home_corridor_waypoint(const sim::Mission &miss
 LineFeasibility evaluate_line(const sim::Mission &mission,
                               const sim::PaintReport &report,
                               const sim::Segment &segment,
-                              sim::Point current) {
+                              sim::Point current,
+                              bool entry_is_start) {
     LineFeasibility result{
         .feasible = true,
-        .center_segment = sim::robot_center_segment_for_paint_segment(segment, mission),
+        .center_segment = center_segment_for_entry(segment, mission, entry_is_start),
     };
 
     const sim::Point paint_start = segment.start;
@@ -389,10 +413,9 @@ LineFeasibility evaluate_line(const sim::Mission &mission,
         return result;
     }
 
-    const bool entry_is_start = true;
-    const sim::Point center_stage = staging_point(result.center_segment, entry_is_start, mission);
-    const sim::Point center_entry = endpoint(result.center_segment, entry_is_start);
-    const sim::Point center_exit = endpoint(result.center_segment, !entry_is_start);
+    const sim::Point center_stage = staging_point(result.center_segment, true, mission);
+    const sim::Point center_entry = result.center_segment.start;
+    const sim::Point center_exit = result.center_segment.end;
 
     if (!sim::point_within_boundaries(mission, center_stage) ||
         !sim::path_within_boundaries(mission, center_stage, center_entry) ||
@@ -434,26 +457,35 @@ std::optional<SelectedTarget> select_next_line(const sim::Mission &mission,
             continue;
         }
 
-        const bool entry_is_start = true;
-        const auto feasibility = evaluate_line(mission, report, segment, current);
-        if (!feasibility.feasible) {
-            if (feasibility.reason == "boundary_proximity") {
-                infeasible[segment.id] = feasibility.reason;
+        for (const bool entry_is_start : {true, false}) {
+            const auto feasibility = evaluate_line(mission, report, segment, current, entry_is_start);
+            if (!feasibility.feasible) {
+                if (feasibility.reason == "boundary_proximity") {
+                    infeasible[segment.id] = feasibility.reason;
+                    break;
+                }
+                continue;
             }
-            continue;
-        }
-        const sim::Point stage = staging_point(feasibility.center_segment, entry_is_start, mission);
+            const sim::Point stage = staging_point(feasibility.center_segment, true, mission);
 
-        double score = sim::distance(current, stage);
-        if (blocking_completed_segment(mission, report, current, stage, segment.id)) {
-            score += 4.0;
-        }
-        if (!sim::path_within_boundaries(mission, current, stage)) {
-            score += 4.0;
-        }
-        if (score < best_score) {
-            best_score = score;
-            best = SelectedTarget{.segment = segment, .center_segment = feasibility.center_segment, .entry_is_start = entry_is_start};
+            double score = sim::distance(current, stage);
+            if (!entry_is_start) {
+                score += 0.05;
+            }
+            if (blocking_completed_segment(mission, report, current, stage, segment.id)) {
+                score += 4.0;
+            }
+            if (!sim::path_within_boundaries(mission, current, stage)) {
+                score += 4.0;
+            }
+            if (score < best_score) {
+                best_score = score;
+                best = SelectedTarget{
+                    .segment = segment,
+                    .center_segment = feasibility.center_segment,
+                    .entry_is_start = entry_is_start,
+                };
+            }
         }
     }
 
@@ -468,8 +500,19 @@ void mark_remaining_infeasible(const sim::Mission &mission,
         if (report.completed.contains(segment.id) || infeasible.contains(segment.id)) {
             continue;
         }
-        const auto feasibility = evaluate_line(mission, report, segment, current);
-        infeasible[segment.id] = feasibility.feasible ? "paint_arm_unreachable" : feasibility.reason;
+        std::optional<std::string> first_reason;
+        bool feasible = false;
+        for (const bool entry_is_start : {true, false}) {
+            const auto feasibility = evaluate_line(mission, report, segment, current, entry_is_start);
+            if (feasibility.feasible) {
+                feasible = true;
+                break;
+            }
+            if (!first_reason || feasibility.reason == "boundary_proximity") {
+                first_reason = feasibility.reason;
+            }
+        }
+        infeasible[segment.id] = feasible ? "paint_arm_unreachable" : first_reason.value_or("paint_arm_unreachable");
     }
 }
 
@@ -610,15 +653,20 @@ int main() {
             plan.desired_speed_mps =
                 (plan.mode == "done" || plan.mode == "boundary_hold") ? 0.0 : mission->max_speed_mps * 0.55;
             send_plan();
+            if (plan.mode == "done") {
+                node.send("mission_done", "1");
+                break;
+            }
             continue;
         }
 
-        const sim::Segment center_segment = sim::robot_center_segment_for_paint_segment(*target_segment, *mission);
-        const sim::Point entry = endpoint(center_segment, active->entry_is_start);
-        const sim::Point exit = endpoint(center_segment, !active->entry_is_start);
-        const sim::Point paint_entry = endpoint(*target_segment, active->entry_is_start);
-        const sim::Point paint_exit = endpoint(*target_segment, !active->entry_is_start);
-        const sim::Point stage = staging_point(center_segment, active->entry_is_start, *mission);
+        const sim::Segment paint_segment = oriented_segment(*target_segment, active->entry_is_start);
+        const sim::Segment center_segment = center_segment_for_entry(*target_segment, *mission, active->entry_is_start);
+        const sim::Point entry = center_segment.start;
+        const sim::Point exit = center_segment.end;
+        const sim::Point paint_entry = paint_segment.start;
+        const sim::Point paint_exit = paint_segment.end;
+        const sim::Point stage = staging_point(center_segment, true, *mission);
         const sim::Point nozzle = paint_point_from_state(*state, *mission);
         const double stage_distance = sim::distance(current, stage);
         const double entry_distance = sim::distance(current, entry);
@@ -638,6 +686,7 @@ int main() {
         sim::Point target = stage;
         plan.mode = "stage_line";
         plan.line_id = target_segment->id;
+        plan.entry_is_start = active->entry_is_start;
         plan.paint_enabled = false;
         plan.desired_speed_mps = mission->max_speed_mps * 0.55;
 

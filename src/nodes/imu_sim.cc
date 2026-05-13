@@ -17,7 +17,13 @@ int main() {
         if (!event || event->kind == sim::EventKind::Stop) {
             break;
         }
-        if (event->kind != sim::EventKind::Input || event->id != "true_state") {
+        if (event->kind != sim::EventKind::Input) {
+            continue;
+        }
+        if (event->id == "mission_done") {
+            break;
+        }
+        if (event->id != "true_state") {
             continue;
         }
         auto state = sim::parse_state(event->data);

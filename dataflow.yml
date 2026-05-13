@@ -6,6 +6,7 @@ nodes:
     path: build/bin/map_server
     inputs:
       tick: dora/timer/millis/100
+      mission_done: planner/mission_done
     outputs:
       - mission
     env:
@@ -18,6 +19,7 @@ nodes:
       mission: map_server/mission
       drive_command: controller/drive_command
       paint_command: controller/paint_command
+      mission_done: planner/mission_done
     outputs:
       - true_state
       - paint_event
@@ -26,6 +28,7 @@ nodes:
     path: build/bin/gps_sim
     inputs:
       true_state: vehicle_sim/true_state
+      mission_done: planner/mission_done
     outputs:
       - rtk_fix
 
@@ -33,6 +36,7 @@ nodes:
     path: build/bin/imu_sim
     inputs:
       true_state: vehicle_sim/true_state
+      mission_done: planner/mission_done
     outputs:
       - imu
 
@@ -42,6 +46,7 @@ nodes:
       tick: dora/timer/millis/100
       rtk_fix: gps_sim/rtk_fix
       imu: imu_sim/imu
+      mission_done: planner/mission_done
     outputs:
       - state_estimate
 
@@ -51,6 +56,7 @@ nodes:
       tick: dora/timer/millis/100
       mission: map_server/mission
       paint_event: vehicle_sim/paint_event
+      mission_done: planner/mission_done
     outputs:
       - paint_report
 
@@ -63,6 +69,7 @@ nodes:
       paint_report: paint_tracker/paint_report
     outputs:
       - plan
+      - mission_done
 
   - id: controller
     path: build/bin/controller
@@ -71,6 +78,7 @@ nodes:
       mission: map_server/mission
       state_estimate: state_estimator/state_estimate
       plan: planner/plan
+      mission_done: planner/mission_done
     outputs:
       - drive_command
       - paint_command
@@ -83,6 +91,7 @@ nodes:
       state_estimate: state_estimator/state_estimate
       plan: planner/plan
       paint_report: paint_tracker/paint_report
+      mission_done: planner/mission_done
 
   - id: rerun_image_bridge
     build: |
@@ -96,6 +105,7 @@ nodes:
       state_estimate: state_estimator/state_estimate
       plan: planner/plan
       paint_report: paint_tracker/paint_report
+      mission_done: planner/mission_done
     outputs:
       - image
       - text
@@ -103,7 +113,8 @@ nodes:
       PYTHONPATH: .venv/lib/python3.12/site-packages
 
   - id: dora-rerun
-    path: .venv/bin/dora-rerun
+    path: .venv/bin/python
+    args: scripts/dora_rerun_wrapper.py
     inputs:
       image:
         source: rerun_image_bridge/image

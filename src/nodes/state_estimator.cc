@@ -22,7 +22,9 @@ int main() {
             continue;
         }
 
-        if (event->id == "rtk_fix") {
+        if (event->id == "mission_done") {
+            break;
+        } else if (event->id == "rtk_fix") {
             latest_gps = sim::parse_gps_fix(event->data);
         } else if (event->id == "imu") {
             latest_imu = sim::parse_imu(event->data);

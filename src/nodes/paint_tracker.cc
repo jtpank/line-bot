@@ -82,6 +82,10 @@ int main() {
             continue;
         }
 
+        if (event->id == "mission_done") {
+            break;
+        }
+
         if (event->id == "mission") {
             mission = sim::parse_mission(event->data);
             if (mission) {

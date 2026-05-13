@@ -584,6 +584,7 @@ std::optional<Plan> parse_plan(const std::string &data) {
     plan.target_x = parse_double_or(message.get("target_x"), plan.target_x);
     plan.target_y = parse_double_or(message.get("target_y"), plan.target_y);
     plan.line_id = message.get("line_id").value_or(plan.line_id);
+    plan.entry_is_start = parse_bool(message.get("entry_is_start").value_or("1"));
     plan.paint_enabled = parse_bool(message.get("paint_enabled").value_or("0"));
     plan.desired_speed_mps = parse_double_or(message.get("desired_speed_mps"), plan.desired_speed_mps);
     plan.infeasible = parse_reason_map(message.get("infeasible").value_or(""));
@@ -597,6 +598,7 @@ std::string render_plan(const Plan &plan) {
         {"target_x", number(plan.target_x)},
         {"target_y", number(plan.target_y)},
         {"line_id", plan.line_id},
+        {"entry_is_start", bool_text(plan.entry_is_start)},
         {"paint_enabled", bool_text(plan.paint_enabled)},
         {"desired_speed_mps", number(plan.desired_speed_mps)},
         {"infeasible", join(plan.infeasible)},

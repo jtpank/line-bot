@@ -61,6 +61,13 @@ std::optional<sim::Segment> find_segment(const sim::Mission &mission, const std:
     return std::nullopt;
 }
 
+sim::Segment oriented_segment(const sim::Segment &segment, bool entry_is_start) {
+    if (entry_is_start) {
+        return segment;
+    }
+    return sim::Segment{.id = segment.id, .start = segment.end, .end = segment.start};
+}
+
 }  // namespace
 
 int main() {
@@ -86,6 +93,9 @@ int main() {
         if (event->id == "mission") {
             mission = sim::parse_mission(event->data);
             continue;
+        }
+        if (event->id == "mission_done") {
+            break;
         }
         if (event->id == "state_estimate") {
             state = sim::parse_state(event->data);
@@ -120,7 +130,8 @@ int main() {
             linear_mps = 0.0;
             turn_rate_rps = 0.0;
         } else if (line_mode) {
-            const sim::Segment center_segment = sim::robot_center_segment_for_paint_segment(*line_segment, *mission);
+            const sim::Segment paint_segment = oriented_segment(*line_segment, plan->entry_is_start);
+            const sim::Segment center_segment = sim::robot_center_segment_for_paint_segment(paint_segment, *mission);
             const double path_length = std::max(sim::segment_length(center_segment.start, center_segment.end), 1e-6);
             const double ux = (center_segment.end.x - center_segment.start.x) / path_length;
             const double uy = (center_segment.end.y - center_segment.start.y) / path_length;
